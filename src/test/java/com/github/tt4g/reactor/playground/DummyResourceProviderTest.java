@@ -5,20 +5,30 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import reactor.core.publisher.Mono;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@MockitoSettings(strictness = Strictness.STRICT_STUBS)
 class DummyResourceProviderTest {
 
+    @Mock
     private DummyResource dummyResource;
 
+    @Mock
+    private DummyResourceFactory dummyResourceFactory;
+
+    @InjectMocks
     private DummyResourceProvider dummyResourceProvider;
 
     @BeforeEach
     void setUp() {
-        this.dummyResource = new DummyResource();
-        this.dummyResourceProvider = new DummyResourceProvider();
+        Mockito.when(this.dummyResourceFactory.create()).thenReturn(this.dummyResource);
     }
 
     @AfterEach
@@ -27,52 +37,54 @@ class DummyResourceProviderTest {
         this.dummyResourceProvider = null;
     }
 
-    private Mono<DummyResource> provide() {
-        return this.dummyResourceProvider.provideAndClose(this.dummyResource);
+    @Test
+    public void closedAfterBlock() {
+        Mono<DummyResource> dummyResourceMono = this.dummyResourceProvider.provide();
+
+        Mockito.verify(this.dummyResource, Mockito.never()).close();
+
+        dummyResourceMono.block();
+
+        Mockito.verify(this.dummyResource, Mockito.atLeastOnce()).close();
     }
 
     @Test
-    public void isClosedAfterBlock() {
-        Mono<DummyResource> dummyResourceMono = provide();
-
-        DummyResourceAssert.assertThat(dummyResourceMono.block())
-            .isClosed();
-    }
-
-    @Test void isClosedAfterThrowException() {
+    public void closedAfterThrowException() {
         Mono<DummyResource> dummyResourceMono =
-            provide()
+            this.dummyResourceProvider.provide()
                 .map(_dummyResource -> {
                     throw new RuntimeException();
                 });
 
         assertThatThrownBy(() -> dummyResourceMono.block())
             .isInstanceOf(RuntimeException.class);
-        DummyResourceAssert.assertThat(this.dummyResource)
-            .isClosed();
+        Mockito.verify(this.dummyResource, Mockito.atLeastOnce()).close();
     }
 
-    static class DummyResourceAssert extends AbstractAssert<DummyResourceAssert, DummyResource> {
+    @Test
+    public void closedAfterFlatMap() {
+        Mono<Integer> dummyResourceMono =
+            this.dummyResourceProvider.provide()
+                .flatMap(_dummyResource -> Mono.just(100));
 
-        public DummyResourceAssert(DummyResource dummyResource) {
-            super(dummyResource, DummyResourceAssert.class);
-        }
+        dummyResourceMono.block();
 
-        public static DummyResourceAssert assertThat(DummyResource dummyResource) {
-            return new DummyResourceAssert(dummyResource);
-        }
+        Mockito.verify(this.dummyResource, Mockito.atLeastOnce()).close();
+    }
 
-        public DummyResourceAssert isClosed() {
-            Assertions.assertThat(actual.isClosed()).isTrue();
+    @Test
+    public void closedAfterThrowExceptionFromFlatMap() {
+        Mono<Integer> dummyResourceMono =
+            this.dummyResourceProvider.provide()
+                .flatMap(_dummyResource ->
+                    Mono.fromCallable(() -> {
+                        throw new RuntimeException();}
+                    ));
 
-            return this;
-        }
+        assertThatThrownBy(() -> dummyResourceMono.block())
+            .isInstanceOf(RuntimeException.class);
 
-        public DummyResourceAssert isNotClosed() {
-            Assertions.assertThat(actual.isClosed()).isFalse();
-
-            return this;
-        }
+        Mockito.verify(this.dummyResource, Mockito.atLeastOnce()).close();
     }
 
 }

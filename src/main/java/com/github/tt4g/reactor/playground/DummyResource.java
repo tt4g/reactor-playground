@@ -1,18 +1,7 @@
 package com.github.tt4g.reactor.playground;
 
-public class DummyResource implements AutoCloseable {
-    private boolean closed;
+public interface DummyResource {
 
-    public DummyResource() {
-        this.closed = false;
-    }
+    void close();
 
-    public boolean isClosed() {
-        return this.closed;
-    }
-
-    @Override
-    public void close() {
-        this.closed = true;
-    }
 }

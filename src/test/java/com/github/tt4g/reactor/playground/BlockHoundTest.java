@@ -5,15 +5,17 @@ import reactor.blockhound.BlockingOperationError;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
 
 public class BlockHoundTest {
 
     @Test
-    public void blocking() {
+    public void blockingSubscribeOnParallelScheduler() {
         assertThatThrownBy(() -> {
             Mono.fromCallable(() -> {
-                Thread.sleep(1000);
+                Thread.sleep(10);
 
                 return 0;
             })
@@ -21,5 +23,18 @@ public class BlockHoundTest {
             .block();
         }).hasCauseInstanceOf(BlockingOperationError.class)
         .hasMessageContaining("Blocking call!");
+    }
+
+    @Test
+    public void blockingSubscribeOnBoundedElasticScheduler() {
+        assertThatCode(() -> {
+            Mono.fromCallable(() -> {
+                Thread.sleep(10);
+
+                return 0;
+            })
+                .subscribeOn(Schedulers.boundedElastic())
+                .block();
+        }).doesNotThrowAnyException();
     }
 }
