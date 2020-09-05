@@ -91,4 +91,13 @@ class DummyResourceProviderTest {
         Mockito.verify(this.dummyResource, Mockito.atLeastOnce()).close();
     }
 
+    @Test
+    public void closedAfterDispose() {
+        Mono<DummyResource> dummyResourceMono = this.dummyResourceProvider.provide();
+
+        dummyResourceMono.subscribe().dispose();
+
+        Mockito.verify(this.dummyResource, Mockito.atLeastOnce()).close();
+    }
+
 }
