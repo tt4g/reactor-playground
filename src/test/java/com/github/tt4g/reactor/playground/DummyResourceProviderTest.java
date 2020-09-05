@@ -1,7 +1,5 @@
 package com.github.tt4g.reactor.playground;
 
-import org.assertj.core.api.AbstractAssert;
-import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -11,8 +9,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import reactor.core.publisher.Mono;
-
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import reactor.test.StepVerifier;
 
 @MockitoSettings(strictness = Strictness.STRICT_STUBS)
 class DummyResourceProviderTest {
@@ -43,7 +40,9 @@ class DummyResourceProviderTest {
 
         Mockito.verify(this.dummyResource, Mockito.never()).close();
 
-        dummyResourceMono.block();
+        StepVerifier.create(dummyResourceMono)
+            .expectNext(this.dummyResource)
+            .verifyComplete();
 
         Mockito.verify(this.dummyResource, Mockito.atLeastOnce()).close();
     }
@@ -56,8 +55,10 @@ class DummyResourceProviderTest {
                     throw new RuntimeException();
                 });
 
-        assertThatThrownBy(() -> dummyResourceMono.block())
-            .isInstanceOf(RuntimeException.class);
+        StepVerifier.create(dummyResourceMono)
+            .expectError(RuntimeException.class)
+            .verify();
+
         Mockito.verify(this.dummyResource, Mockito.atLeastOnce()).close();
     }
 
@@ -67,7 +68,9 @@ class DummyResourceProviderTest {
             this.dummyResourceProvider.provide()
                 .flatMap(_dummyResource -> Mono.just(100));
 
-        dummyResourceMono.block();
+        StepVerifier.create(dummyResourceMono)
+            .expectNext(100)
+            .verifyComplete();
 
         Mockito.verify(this.dummyResource, Mockito.atLeastOnce()).close();
     }
@@ -81,8 +84,9 @@ class DummyResourceProviderTest {
                         throw new RuntimeException();}
                     ));
 
-        assertThatThrownBy(() -> dummyResourceMono.block())
-            .isInstanceOf(RuntimeException.class);
+        StepVerifier.create(dummyResourceMono)
+            .expectError(RuntimeException.class)
+            .verify();
 
         Mockito.verify(this.dummyResource, Mockito.atLeastOnce()).close();
     }
